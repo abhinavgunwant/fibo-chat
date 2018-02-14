@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_Register(object):
     def setupUi(self, Register):
         Register.setObjectName("Register")
-        Register.resize(367, 355)
+        Register.resize(367, 442)
         self.label = QtWidgets.QLabel(Register)
         self.label.setGeometry(QtCore.QRect(0, 0, 361, 41))
         font = QtGui.QFont()
@@ -131,6 +131,12 @@ class Ui_Register(object):
         self.confPassEdit.setText("")
         self.confPassEdit.setObjectName("confPassEdit")
         self.formLayout_2.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.confPassEdit)
+        self.registerNotificationLabel = QtWidgets.QLabel(Register)
+        self.registerNotificationLabel.setGeometry(QtCore.QRect(10, 350, 341, 81))
+        font = QtGui.QFont()
+        font.setPointSize(10)
+        self.registerNotificationLabel.setFont(font)
+        self.registerNotificationLabel.setObjectName("registerNotificationLabel")
 
         self.retranslateUi(Register)
         QtCore.QMetaObject.connectSlotsByName(Register)
@@ -147,4 +153,5 @@ class Ui_Register(object):
         self.label_5.setText(_translate("Register", "Username"))
         self.label_3.setText(_translate("Register", "Password"))
         self.label_7.setText(_translate("Register", "Confirm Pass"))
+        self.registerNotificationLabel.setText(_translate("Register", "Register process notification...."))
 

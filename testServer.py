@@ -1,5 +1,14 @@
 import socket
 import threading
+import queue
+import time
+import json
+
+import DBInit
+
+loopExit = False
+
+requestQueue = queue.PriorityQueue()
 
 class Server:
     def __init__(self):
@@ -16,20 +25,32 @@ class Server:
         self.loop()
 
     def loop(self):
+        global loopExit
+        global requestQueue
         print('in loop.....')
-        while not self.exit:
-            con, cl_addr = self.serverSocket.accept()
-            # try:
-            #     while True:
-            #         data = con.recv(65536)
-            #         if data == b'exit':
-            #             print('explicit exit....')
-            #             exit()
-            #         if data:
-            #             print(data)
-            # finally:
-            #     con.close()
-            Serve(con, cl_addr).start()
+
+        con, cl_addr = self.serverSocket.accept()
+        self.serve = Serve(con, cl_addr)
+        self.serve.start()
+
+        try:
+            while not loopExit:
+                data = (con.recv(65536)).decode('utf-8')
+                if data == 'exit':
+                    print('explicit exit....')
+                    loopExit = True
+                    exit()
+
+                if data:
+                    print(data)
+                    reqObj = json.loads(data)
+                    priority = 1
+                    if reqObj['request-type'].upper() == 'EXIT':
+                        priority = 0
+
+                    requestQueue.put((priority, reqObj))
+        finally:
+            con.close()
 
 class Serve(threading.Thread):
     def __init__(self, connection, clientAddress):
@@ -38,17 +59,33 @@ class Serve(threading.Thread):
         self.clientAddress = clientAddress
 
     def run(self):
+        global loopExit
+        global requestQueue
         try:
-            while True:
-                data = self.connection.recv(65536)
-                if data == b'exit':
-                    print('explicit exit....')
-                    exit()
-                if data:
-                    print(data)
-        finally:
-            self.connection.close()
+            while not loopExit:
+                if requestQueue.empty() == True:
+                    time.sleep(1)
+                reqObj = requestQueue.get()
+                if (reqObj['request-type']).upper() == 'EXIT':
+                    loopExit = True
+                    break
+                if (reqObj['request-type']).upper() == 'REGISTER':
 
+        finally:
+            print('Exiting....')
+
+class TextPrompt(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+
+    def start(self):
+        global loopExit
+        text = ''
+            while True:
+            text = input()
+            if text == 'exit':
+                loopExit = True
+                break
 
 def main():
     server = Server()

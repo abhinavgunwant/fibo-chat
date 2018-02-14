@@ -1,10 +1,18 @@
 import socket
+import json
 
-# data = 'This is sample data!'
-# data = 'exit'
+request = {
+    'request-type': "REGISTER",
+    'username': 'abhii',
+    'password': 'password',
+    'first-name': 'Abhinav',
+    'middle-name': None,
+    'last-name': 'Gunwant',
+    'city': 'Haldwani',
+    'coutntry': 'India'
+}
 
-data = input('Enter text for this thread: ')
-
+data = json.dumps(request)
 
 class Client:
     def __init__(self):
@@ -18,7 +26,6 @@ def main():
     global data
     client = Client()
     client.send(data)
-
 
 if __name__ == '__main__':
     main()

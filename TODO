@@ -1,0 +1,16 @@
+- configure database
+- create a table that contains currently logged in users
+- create a system that tracks whether a user is logged in or not
+- add the feature:
+    - if I am A and I want to talk to B:
+        - I will search the contact on the server
+        - I will add B to my contact list
+        - I will ask B to start communication by sending a communication request
+        - once B accepts the communication request, we will begin the chat
+        - no chat data is stored by the server
+        - the role of the server is to provide both the clients the socket
+            addresses to establish the connection between them.
+        - once both the clients get the required socket addresses, they start
+            their own server instances to communicate with each other, the
+            socket addresses of these servers are also exchanged through server
+            (the MAIN server).

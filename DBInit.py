@@ -7,7 +7,12 @@ def init():
 
     cur.execute('''
         CREATE TABLE IF NOT EXISTS user (
-            username VARCHAR(16),
-            token VARCHAR(32)
+            id int(5) NOT NULL,
+            username VARCHAR(16) NOT NULL,
+            first-name VARCHAR(32) NOT NULL,
+            last-name VARCHAR(32),
+            password varchar(64) NOT NULL,
+
+            PRIMARY KEY(id)
         )
     ''')
