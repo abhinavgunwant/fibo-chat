@@ -6,6 +6,7 @@ import FiboCrypt.fibocrypt as fc
 
 from PyQt5                      import QtGui, QtWidgets
 from PyQt5.QtWidgets            import QWidget, QApplication, QMainWindow, QDialog
+
 from GUI.RegisterDialogGUI      import Ui_Register
 # from FiboCrypt.fibocrypt        import fibocrypt, toString
 
@@ -15,8 +16,8 @@ class RegisterDialog(QDialog):
         self.ui = Ui_Register()
         self.ui.setupUi(self)
 
-        self.registerButton.clicked.connect(self.register)
-        self.resetButton.clicked.connect(self.formReset)
+        self.ui.registerButton.clicked.connect(self.register)
+        self.ui.resetButton.clicked.connect(self.formReset)
 
         self.emailPattern = r'^(\w|[\._\-0-9])+@(\w|[\-0-9])+(\.\w+)+$'
 

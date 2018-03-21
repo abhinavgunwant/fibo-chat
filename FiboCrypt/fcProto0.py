@@ -170,8 +170,8 @@ def toString(matList,p,q):
 
     for mat in matList:
         text += (str(mat[0,0]) + ',' + str(mat[0,1]) + ',' + str(mat[0,2]) + ','
-                str(mat[1,0]) + ',' + str(mat[1,1]) + ',' + str(mat[1,2]) + ','
-                str(mat[2,0]) + ',' + str(mat[2,1]) + ',' + str(mat[2,2]) + ',')
+                + str(mat[1,0]) + ',' + str(mat[1,1]) + ',' + str(mat[1,2]) + ','
+                + str(mat[2,0]) + ',' + str(mat[2,1]) + ',' + str(mat[2,2]) + ',')
 
     return text
 
