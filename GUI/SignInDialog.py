@@ -34,7 +34,7 @@ class SignInDialog(QDialog):
         return self.signedIn
 
     def getUsername(self):
-        return this.username
+        return self.username
 
     def setSock(self, sock):
         self.sock = sock
