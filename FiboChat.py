@@ -71,4 +71,6 @@ if len(list(x)) == 0:
 
     signInDialog.show()
 
+else:
+    signInDialog.show()
 sys.exit(app.exec_())

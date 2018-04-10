@@ -117,6 +117,9 @@ class Ui_Register(object):
         self.passwordEdit.setFont(font)
         self.passwordEdit.setText("")
         self.passwordEdit.setObjectName("passwordEdit")
+        ################## make the password invisible ############
+        self.passwordEdit.setEchoMode(QtWidgets.QLineEdit.Password)
+        ###########################################################
         self.formLayout_2.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.passwordEdit)
         self.label_7 = QtWidgets.QLabel(self.formLayoutWidget_2)
         font = QtGui.QFont()
@@ -130,6 +133,9 @@ class Ui_Register(object):
         self.confPassEdit.setFont(font)
         self.confPassEdit.setText("")
         self.confPassEdit.setObjectName("confPassEdit")
+        ################## make the password invisible ############
+        self.confPassEdit.setEchoMode(QtWidgets.QLineEdit.Password)
+        ###########################################################
         self.formLayout_2.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.confPassEdit)
         self.registerNotificationLabel = QtWidgets.QLabel(Register)
         self.registerNotificationLabel.setGeometry(QtCore.QRect(10, 350, 341, 81))

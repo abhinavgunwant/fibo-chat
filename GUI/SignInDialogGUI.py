@@ -47,6 +47,9 @@ class Ui_Dialog(object):
         font.setPointSize(12)
         self.passwordEdit.setFont(font)
         self.passwordEdit.setObjectName("passwordEdit")
+        ################## make the password invisible ############
+        self.passwordEdit.setEchoMode(QtWidgets.QLineEdit.Password)
+        ###########################################################
         self.formLayout.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.passwordEdit)
         self.signinButton = QtWidgets.QPushButton(self.formLayoutWidget)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
