@@ -1,185 +1,165 @@
 import sys
-import base64
-#QString,QHttpRequestHeader,
-from PyQt5.QtCore import QUrl,  QObject, pyqtSlot, QCoreApplication
-from PyQt5.QtNetwork import QTcpSocket, QTcpServer, QHostAddress,  QNetworkProxy, QNetworkRequest, QNetworkAccessManager
+import sqlite3
+import json
+import _thread
+from socket import *
 
+import ServerDBInit
 
-class Server(QObject):
-    debug = True
-    log = sys.stderr
-    username = 'username'
-    password = 'password'
-    stopServing = pyqtSlot()
+DB_NAME = 'server-data.db'
 
-    def __init__(self, parent=None):
-        super(Server, self).__init__(parent)
-        self.proxy_server = QTcpServer(self)
-        self.proxy_server.listen(QHostAddress.Any, 8000)
-        self.proxy_server.newConnection.connect(self.manage_request)
+dbConn = sqlite3.connect('server-data.db')
+dbCur = dbConn.cursor()
 
-        if self.debug:
-            self.log.write('Server running on localhost port %s\n\n' %
-                self.port())
+ServerDBInit.init()
 
-    def port(self):
-        return self.proxy_server.serverPort()
+host="127.168.2.75"
+port=4447
 
-    def addr(self):
-        return self.proxy_server.serverAddress().toString()
+connectedClients = {}
+exit = False
 
-    def stopServing(self):
-        if self.debug:
-            self.log.write('Service is stopping...\n\n')
+# def isConnected(clAddr):
+#     global connectedClients
+#     for keys, arr in connectedClients.iteritems():
+#         if clAddr == arr[1]:
+#             return True
+#     return False
 
-        # does not "close" the server, just stop listening...
-        self.proxy_server.close()
+def isUserConnected(user):
+    global connectedClients
+    for key, values in connectedClients.items():
+        if key == user:
+            return True
 
-        if self.proxy_server.hasPendingConnections():
-            socket = self.proxy_server.nextPendingConnection()
-            while socket:
-                socket.abort()
-                socket = self.proxy_server.nextPendingConnection()
+    return False
 
-    def manage_request(self):
-        proxy_server = self.sender()
-        # Qt docs says that the caller of nextPendingConnection()
-        # is the parent of the socket
-        socket = proxy_server.nextPendingConnection()
-        socket.readyRead.connect(self.process_request)
-        socket.disconnected.connect(socket.deleteLater)
+def listener(sock):
+    global exit
+    print('waiting for client....')
+    gotUser = False
+    while not exit:
+        sock.listen(1)
+        conn,addr = sock.accept()
+        print('connected with a client....')
+        # The server should now receive the first ever data from the client
+        # It should be a json having keys either 'login' for login or
+        # 'register' for register...
+        while not gotUser:
+            firstJsonData = conn.recv(1024).strip().decode()
+            firstData = json.loads(firstJsonData)
+            if 'type' in firstData:
+                if firstData['type'] == 'login':
+                    print('received a "login" type!')
+                    respObj = getUser(firstData)
+                    if respObj['status'] == True:
+                        currentUser = respObj['username']
+                        connectedClients[currentUser] = [conn, addr]
+                        gotUser = True
+                    conn.send(bytes(json.dumps(respObj), 'utf-8'))
+                elif firstData['type'] == 'register':
+                    print('received a "register" type!')
+                    respObj = registerUser(firstData)
+                    # if respObj['status'] == True:
+                    #     currentUser = respObj['username']
+                    #     connectedClients[currentUser] = [conn, addr]
+                    #     gotUser = True
+                    conn.send(bytes(json.dumps(respObj), 'utf-8'))
 
-    def authorize_request(self, request_data):
-        return True
-        header = QHttpRequestHeader(QString(request_data))
-        if self.debug:
-            self.log.write(header.toString())
+        _thread.start_new_thread(listen, (conn, addr,))
 
-        auth = header.value('Proxy-Authorization')
-        if not auth:
-            return False
+#listens a client in a separate thread....
+def listen(conn, addr):
+    global exit
+    while not exit:
+        data = conn.recv(65535)
+        dataText = data.strip().decode('utf-8')
+        recData = json.loads(dataText)
+        if 'touser' in reData and isUserConnected(recData['touser']):
+            sendToUser(dataText)
 
-        challenge = base64.b64encode(self.username+':'+self.password)
-        return challenge == str(auth).split()[1]
+# sends json to the user with the given 'user' id
+def sendToUser(jsonDataText):
+    recData = json.loads(jsonDataText)
+    con = connectedClients[recData['touser']][0]
+    con.send(bytes(jsonDataText, 'utf-8'))
 
-    def process_request(self):
-        socket = self.sender()
-        request_data = socket.readAll()
+# Receives the username and password of client when client first connects to the
+# server, hence, the client must send username and password in json format as
+# the first form of data when the connection between server and client is
+# established....
+def getUser(userInfo):
+    userLoggedIn = False
+    # while not userLoggedIn:
+        # data = conn.recv(1024)
+        # userTextJson = data.strip().decode()
+        # userInfo = json.loads(userTextJson)
 
-        if not self.authorize_request(request_data):
-            socket.write('HTTP/1.1 407 Proxy Authentication Required\r\n')
-            if self.debug:
-                self.log.write('407 Proxy Authentication Required\n\n')
-            socket.write('Proxy-Authenticate: Basic realm="test"\r\n')
-            socket.write('\r\n')
-            socket.disconnectFromHost()
-            return
+    if 'username' in userInfo and 'password' in userInfo:
+        if ServerDBInit.loginCheck(userInfo['username'], userInfo['password']):
+            return {
+                    'type': 'status',
+                    'status': True,
+                    'username': userInfo['username']
+                }
+            # conn.send(bytes(statusJSON, 'utf-8'))
+            # userLoggedIn = True
+
+            # connectedClients[userText] = [conn, addr]
+            # return userInfo['username']
         else:
-            # remove Proxy-Authorization header
-            start = request_data.indexOf('Proxy-Authorization:')
-            end = request_data.lastIndexOf('\r\n')
-            request_data.remove(start, end)
-            request_data.append('\r\n')
+            return {
+                    'type': 'status',
+                    'status': False
+                }
+            # conn.send(bytes(statusJSON, 'utf-8'))
 
-        pos = request_data.indexOf('\r\n')
-        request_line = request_data.left(pos)
-        request_data.remove(0, pos + 2)
+def registerUser(userInfo):
+    print('Registering....')
+    usrCon = sqlite3.connect(DB_NAME)
+    usrCur = usrCon.cursor()
+    usrCur = usrCon.execute('SELECT username FROM USER WHERE username = "'+userInfo['username']+'"')
+    row = usrCur.fetchone()
 
-        entries = request_line.split(' ')
-        method = entries[0]
-        address = entries[1]
-        version = entries[2]
-        port = '80'
+    # print(row)
 
-        if address.count(':') > 1:
-            protocol, host, port = address.split(':')
-        else:
-            protocol, host = address.split(':')
+    if row != None:
+        if row[0] == userInfo['username']:
+            return {'type': 'status', 'status': False, 'message': 'You are already registered!'}
+    
+    errorMessage = ''
+    registerUserSuccess = False
 
-        print('address'+ str(address))
+    if (
+        'firstName' in userInfo and 'lastName' in userInfo and 'username' in userInfo 
+        and 'email' in userInfo and 'password' in userInfo
+    ) == False:
+        return {'type': 'status', 'status': False, 'message': 'Form Contains incomplete information'}
 
-        #url = QUrl( protocol + host )
-        url = QUrl.fromEncoded(address)
-        #url.setHost( host )
-        #url.setPort( int(port) )
+    firstName = userInfo['firstName']
+    lastName = userInfo['lastName']
+    username = userInfo['username']
+    email = userInfo['email']
+    password = userInfo['password']
 
-        if not url.isValid():
-            if self.debug:
-                self.log.write('Invalid URL: %s\n\n', url)
-            socket.disconnectFromHost()
-            return
+    if firstName == '' or lastName == '' or username == '' or email == '' or password == '':
+        return {'type': 'status', 'status': False, 'message': 'Form Contains incomplete information'}
 
-        host = url.host()
-        port = 80 if (url.port() < 0) else url.port()
-        req = url.encodedPath() 
-        if url.hasQuery():
-            req.append('?').append(url.encodedQuery())
-        request_line = method + ' ' + req + ' ' + version + '\r\n'
-        request_data.prepend(request_line)
+    ServerDBInit.insertTable(firstName, lastName, username, email, password)
 
-        if self.debug:
-            self.log.write(method + ' ' + address + ' ' + version + '\n\n')
+    # con = sqlite3.connect()
 
-        key = host + ':' + QString.number(port)
-        proxy_socket = socket.findChild(QTcpSocket, key)
-        if proxy_socket:
-            proxy_socket.setObjectName(key)
-            proxy_socket.setProperty('url', url)
-            proxy_socket.setProperty('request_data', request_data)
-            proxy_socket.write(request_data)
-        else:
-            proxy_socket = QTcpSocket(socket)
-            proxy_socket.setObjectName(key)
-            proxy_socket.setProperty('url', url)
-            proxy_socket.setProperty('request_data', request_data)
-            proxy_socket.connected.connect(self.send_request)
-            proxy_socket.readyRead.connect(self.transfer_data)
-            proxy_socket.disconnected.connect(self.close_connection)
-            proxy_socket.error.connect(self.close_connection)
-            proxy_socket.connectToHost(host, port)
-
-    def send_request(self):
-        proxy_socket = self.sender()
-        request_data = proxy_socket.property('request_data').toByteArray()
-        proxy_socket.write(request_data)
-
-    def transfer_data(self):
-        proxy_socket = self.sender()
-        socket = proxy_socket.parent()
-        socket.write(proxy_socket.readAll())
-
-    def close_connection(self):
-        proxy_socket = self.sender()
-        if proxy_socket:
-            socket = proxy_socket.parent()
-            if isinstance(socket, QTcpSocket) and socket:
-                socket.disconnectFromHost()
-            if proxy_socket.error() != QTcpSocket.RemoteHostClosedError:
-                url = proxy_socket.property('url').toUrl()
-                error_string = proxy_socket.errorString()
-
-                if self.debug:
-                    self.log.write('Error for %s %s\n\n' % (url, error_string))
-
-            proxy_socket.deleteLater()
+    return {'type': 'status', 'status': True, 'message': 'User registered!', 'username': username}
 
 
-if __name__ == '__main__':
-    app = QCoreApplication(sys.argv)
+s=socket(AF_INET, SOCK_STREAM)
+s.bind((host,port))
+print("Listening for connections.. ")
 
-    server = Server()
-    manager = QNetworkAccessManager()
-    manager.finished.connect(server.stopServing)
-    manager.finished.connect(app.quit)
+_thread.start_new_thread(listener, (s,))
 
-    proxy = QNetworkProxy()
-    proxy.setType(QNetworkProxy.HttpProxy)
-    proxy.setHostName('127.0.0.1')
-    proxy.setPort(server.port())
-    proxy.setUser(server.username)
-    proxy.setPassword(server.password)
+while not exit:
+    if exit:
+        print('exiting')
 
-    manager.setProxy(proxy)
-    reply = manager.get(QNetworkRequest(QUrl('http://aws.amazon.com/')))
-
-    sys.exit(app.exec_())
+s.close()

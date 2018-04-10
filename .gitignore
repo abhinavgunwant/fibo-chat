@@ -1,0 +1,12 @@
+
+.vscode/settings.json
+__pycache__/database.cpython-36.pyc
+*.pyc
+__pycache__/DBInit.cpython-36.pyc
+*.pyc
+*.pyc
+GUI/__pycache__/__init__.cpython-36.pyc
+GUI/__pycache__/MainWindow.cpython-36.pyc
+*.pyc
+GUI/__pycache__/SignInDialog.cpython-36.pyc
+GUI/__pycache__/SignInDialogGUI.cpython-36.pyc
