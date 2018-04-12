@@ -8,15 +8,18 @@ import ServerDBInit
 
 DB_NAME = 'server-data.db'
 
-dbConn = sqlite3.connect('server-data.db')
+dbConn = sqlite3.connect(DB_NAME)
 dbCur = dbConn.cursor()
 
 ServerDBInit.init()
 
-host="127.168.2.75"
+# host="127.168.2.75"
+host="10.20.4.203"
 port=4447
 
 connectedClients = {}
+contactList = []
+
 exit = False
 
 # def isConnected(clAddr):
@@ -71,11 +74,22 @@ def listener(sock):
 #listens a client in a separate thread....
 def listen(conn, addr):
     global exit
+    global contactList
     while not exit:
         data = conn.recv(65535)
         dataText = data.strip().decode('utf-8')
         recData = json.loads(dataText)
-        if 'touser' in reData and isUserConnected(recData['touser']):
+        if 'type' in recData and recData['type'] == 'contactlist':
+            # sendContactList()
+            respObj = {
+                'type': 'contactlist',
+                'contacts': contactList
+            }
+
+            respJson = json.dumps(respObj)
+            conn.send(bytes(respJson, 'utf-8'))
+
+        elif 'touser' in recData and isUserConnected(recData['touser']):
             sendToUser(dataText)
 
 # sends json to the user with the given 'user' id
@@ -163,3 +177,12 @@ while not exit:
         print('exiting')
 
 s.close()
+
+def loadContactList():
+    global dbConn
+    contactCur = dbConn.execute('SELECT first_name, last_name, username, email FROM user')
+    for row in contactsCur:
+        contactList.append(row[0], row[1], row[2], row[3])
+
+# def sendContactList():
+    

@@ -51,6 +51,8 @@ def register():
 def checkSignedIn():
     global signInDialog
     global username
+    global signedIn
+    global sock
 
     print('checkSignedIn(): start')
     while True:
@@ -61,6 +63,12 @@ def checkSignedIn():
     signedIn = True
     signInDialog.hide()
     print('checkSignedIn(): end with login!')
+
+    # now get the online contacts
+    sock.send(bytes(json.dumps({'type': 'contactlist'})))
+    respData = sock.recv(1024).strip().decode()
+    respObj = json.loads(respData)
+    print(respObj)
     
     return True
         
@@ -99,9 +107,11 @@ if len(list(x)) == 0:
     mainWindow.ui.label.setText('<font color="RED"><b>You are not Logged In!</b></font>')
     mainWindow.ui.friendListView.hide()
 
-    username = signInDialog.show()
+    # username = signInDialog.show()
+    signInDialog.show()
 else:
-    username = signInDialog.show()
+    # username = signInDialog.show()
+    signInDialog.show()
 
 # signInDialog.hide()
 
