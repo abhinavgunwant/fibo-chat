@@ -13,8 +13,8 @@ dbCur = dbConn.cursor()
 
 ServerDBInit.init()
 
-# host="127.168.2.75"
-host="10.20.4.203"
+host="127.168.2.75"
+# host="10.20.4.203"
 port=4447
 
 connectedClients = {}
@@ -40,15 +40,50 @@ def isUserConnected(user):
 def listener(sock):
     global exit
     print('waiting for client....')
-    gotUser = False
+    # gotUser = False
     while not exit:
         sock.listen(1)
         conn,addr = sock.accept()
-        print('connected with a client....')
+        print('connected with a client.... listening in new thread....')
         # The server should now receive the first ever data from the client
         # It should be a json having keys either 'login' for login or
         # 'register' for register...
-        while not gotUser:
+        # while not gotUser:
+        #     firstJsonData = conn.recv(1024).strip().decode()
+        #     firstData = json.loads(firstJsonData)
+        #     if 'type' in firstData:
+        #         if firstData['type'] == 'login':
+        #             print('received a "login" type!')
+        #             respObj = getUser(firstData)
+        #             if respObj['status'] == True:
+        #                 currentUser = respObj['username']
+        #                 connectedClients[currentUser] = [conn, addr]
+        #                 gotUser = True
+        #             conn.send(bytes(json.dumps(respObj), 'utf-8'))
+        #         elif firstData['type'] == 'register':
+        #             print('received a "register" type!')
+        #             respObj = registerUser(firstData)
+        #             # if respObj['status'] == True:
+        #             #     currentUser = respObj['username']
+        #             #     connectedClients[currentUser] = [conn, addr]
+        #             #     gotUser = True
+        #             conn.send(bytes(json.dumps(respObj), 'utf-8'))
+            
+        # print('listening in new thread....')
+        _thread.start_new_thread(listen, (conn, addr,))
+
+#listens a client in a separate thread....
+def listen(conn, addr):
+    global exit
+    global contactList
+    global connectedClients
+    gotUser = False
+    currentUser = ''
+
+    # The server should now receive the first ever data from the client
+    # It should be a json having keys either 'login' for login or
+    # 'register' for register...
+    while not gotUser:
             firstJsonData = conn.recv(1024).strip().decode()
             firstData = json.loads(firstJsonData)
             if 'type' in firstData:
@@ -68,22 +103,17 @@ def listener(sock):
                     #     connectedClients[currentUser] = [conn, addr]
                     #     gotUser = True
                     conn.send(bytes(json.dumps(respObj), 'utf-8'))
-
-        _thread.start_new_thread(listen, (conn, addr,))
-
-#listens a client in a separate thread....
-def listen(conn, addr):
-    global exit
-    global contactList
     while not exit:
         data = conn.recv(65535)
         dataText = data.strip().decode('utf-8')
+        print('Received from '+currentUser+': '+dataText)
         recData = json.loads(dataText)
         if 'type' in recData and recData['type'] == 'contactlist':
             # sendContactList()
             respObj = {
                 'type': 'contactlist',
-                'contacts': contactList
+                'contacts': contactList,
+                'contactsonline': list(connectedClients.keys())
             }
 
             respJson = json.dumps(respObj)
@@ -91,6 +121,10 @@ def listen(conn, addr):
 
         elif 'touser' in recData and isUserConnected(recData['touser']):
             sendToUser(dataText)
+
+        elif 'type' in recData and recData['type'] == 'exit':
+            del connectedClients[recData['username']]
+            exit = True
 
 # sends json to the user with the given 'user' id
 def sendToUser(jsonDataText):
@@ -165,10 +199,18 @@ def registerUser(userInfo):
 
     return {'type': 'status', 'status': True, 'message': 'User registered!', 'username': username}
 
+def loadContactList():
+    global dbConn
+    contactCur = dbConn.execute('SELECT first_name, last_name, username, email FROM user')
+    for row in contactCur:
+        contactList.append([row[0], row[1], row[2], row[3]])
+
 
 s=socket(AF_INET, SOCK_STREAM)
 s.bind((host,port))
 print("Listening for connections.. ")
+
+loadContactList()
 
 _thread.start_new_thread(listener, (s,))
 
@@ -177,12 +219,6 @@ while not exit:
         print('exiting')
 
 s.close()
-
-def loadContactList():
-    global dbConn
-    contactCur = dbConn.execute('SELECT first_name, last_name, username, email FROM user')
-    for row in contactsCur:
-        contactList.append(row[0], row[1], row[2], row[3])
 
 # def sendContactList():
     

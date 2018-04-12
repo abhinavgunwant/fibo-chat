@@ -43,7 +43,7 @@ class SignInDialog(QDialog):
         username = self.ui.usernameEdit.text()
         password = self.ui.passwordEdit.text()
 
-        result = DBInit.loginCheck(username,password)
+        # result = DBInit.loginCheck(username,password)
 
         reqObj = {
             'type':     'login',
@@ -62,7 +62,7 @@ class SignInDialog(QDialog):
                 # self.showMessage("Logged in Successfully","Logged In Successfully")
                 # print(result)
                 self.formReset()
-                window.show()
+                # window.show()
                 self.signedIn = True
                 self.hide()
             else:
