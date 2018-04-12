@@ -13,7 +13,8 @@ dbCur = dbConn.cursor()
 
 ServerDBInit.init()
 
-host="127.168.2.75"
+host = '127.0.0.1'
+# host="127.168.2.75"
 # host="10.20.4.203"
 port=4447
 
@@ -84,25 +85,25 @@ def listen(conn, addr):
     # It should be a json having keys either 'login' for login or
     # 'register' for register...
     while not gotUser:
-            firstJsonData = conn.recv(1024).strip().decode()
-            firstData = json.loads(firstJsonData)
-            if 'type' in firstData:
-                if firstData['type'] == 'login':
-                    print('received a "login" type!')
-                    respObj = getUser(firstData)
-                    if respObj['status'] == True:
-                        currentUser = respObj['username']
-                        connectedClients[currentUser] = [conn, addr]
-                        gotUser = True
-                    conn.send(bytes(json.dumps(respObj), 'utf-8'))
-                elif firstData['type'] == 'register':
-                    print('received a "register" type!')
-                    respObj = registerUser(firstData)
-                    # if respObj['status'] == True:
-                    #     currentUser = respObj['username']
-                    #     connectedClients[currentUser] = [conn, addr]
-                    #     gotUser = True
-                    conn.send(bytes(json.dumps(respObj), 'utf-8'))
+        firstJsonData = conn.recv(1024).strip().decode()
+        firstData = json.loads(firstJsonData)
+        if 'type' in firstData:
+            if firstData['type'] == 'login':
+                print('received a "login" type!')
+                respObj = getUser(firstData)
+                if respObj['status'] == True:
+                    currentUser = respObj['username']
+                    connectedClients[currentUser] = [conn, addr]
+                    gotUser = True
+                conn.send(bytes(json.dumps(respObj), 'utf-8'))
+            elif firstData['type'] == 'register':
+                print('received a "register" type!')
+                respObj = registerUser(firstData)
+                # if respObj['status'] == True:
+                #     currentUser = respObj['username']
+                #     connectedClients[currentUser] = [conn, addr]
+                #     gotUser = True
+                conn.send(bytes(json.dumps(respObj), 'utf-8'))
     while not exit:
         data = conn.recv(65535)
         dataText = data.strip().decode('utf-8')
@@ -119,17 +120,21 @@ def listen(conn, addr):
             respJson = json.dumps(respObj)
             conn.send(bytes(respJson, 'utf-8'))
 
-        elif 'touser' in recData and isUserConnected(recData['touser']):
+        elif ('type' in recData and recData['type'] == 'message' and
+            'touser' in recData and isUserConnected(recData['touser'])):
             sendToUser(dataText)
 
         elif 'type' in recData and recData['type'] == 'exit':
             del connectedClients[recData['username']]
             exit = True
+        else:
+            print('----!!----')
 
 # sends json to the user with the given 'user' id
 def sendToUser(jsonDataText):
     recData = json.loads(jsonDataText)
     con = connectedClients[recData['touser']][0]
+    print('sending data to: ' + recData['touser'] + ' socket: ' + str(con.getpeername()))    
     con.send(bytes(jsonDataText, 'utf-8'))
 
 # Receives the username and password of client when client first connects to the
@@ -146,10 +151,10 @@ def getUser(userInfo):
     if 'username' in userInfo and 'password' in userInfo:
         if ServerDBInit.loginCheck(userInfo['username'], userInfo['password']):
             return {
-                    'type': 'status',
-                    'status': True,
-                    'username': userInfo['username']
-                }
+                'type': 'status',
+                'status': True,
+                'username': userInfo['username']
+            }
             # conn.send(bytes(statusJSON, 'utf-8'))
             # userLoggedIn = True
 

@@ -8,8 +8,8 @@ from datetime import datetime
 def fibocrypt(text, p, q):
     global fibArrInit
 
-    if not fibArrInit:
-        initFibArr()
+    # if not fibArrInit:
+    #     initFibArr()
 
     r = p+q
     txtLen = len(text)
@@ -92,7 +92,32 @@ def toString(matList,p,q):
                     + str(mat[1,0]) + ',' + str(mat[1,1]) + ',' + str(mat[1,2]) + ','
                     + str(mat[2,0]) + ',' + str(mat[2,1]) + ',' + str(mat[2,2]) + ',')
 
-    return text
+
+    return text[:-1]
+
+def fromString(text):
+    numbers = text.split(',')
+
+    p = int(numbers[0])
+    q = int(numbers[1])
+
+    cryptList = []
+
+    for i in range(2, len(numbers), 9):
+        cryptList.append(
+            np.matrix(
+                numbers[i] + ' ' + numbers[i+1] + ' ' + numbers[i+2] + '; ' +
+                numbers[i+3] + ' ' + numbers[i+4] + ' ' + numbers[i+5] + ';' +
+                numbers[i+6] + ' ' + numbers[i+7] + ' ' + numbers[i+8]
+            )
+        )
+
+    return (cryptList, p, q)
+
+def decryptFromString(text):
+    cryptList, p, q = fromString(text)
+
+    return decryptList(cryptList, p, q)
 
 def main():
     print('FiboCrypt-0.01 (Pre-Alpha)\n\nMENU\n')
@@ -100,7 +125,7 @@ def main():
     print('3 - Encrypt 64k sample\n4 - Exit\n')
 
     menuResponse = int(input('Enter your MENU choice: '))
-    initFibArr()
+    # initFibArr()
     time2 = None
 
     if menuResponse == 1:
@@ -117,7 +142,7 @@ def main():
                     text += line
 
     p = 43566776258855008468992
-    q = 43566776258855008468992
+    q = 70492524767089384226816
 
     print('Using p = ' + str(p) + ', q = ' + str(q))
 

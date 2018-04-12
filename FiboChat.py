@@ -4,6 +4,9 @@ import DBInit
 import PyQt5
 import _thread
 import json
+import FiboCrypt.fibocrypt as fc
+
+import numpy as np
 
 from PyQt5              import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets    import QWidget, QApplication, QAbstractItemView
@@ -17,6 +20,11 @@ from GUI.ChatDialogGUI  import Ui_Chat
 
 from socket             import *
 
+
+p = 43566776258855008468992
+q = 70492524767089384226816
+
+exit = False
 username = ''
 signedIn = False
 contactsList = []
@@ -69,7 +77,7 @@ def checkSignedIn():
     username = signInDialog.getUsername()
     signedIn = True
     signInDialog.hide()
-    print('checkSignedIn(): end with login!')
+    print('checkSignedIn(): logged in as: ' + username)
 
     print('checkSignedIn(): now getting contacts...')
     
@@ -99,7 +107,8 @@ def checkSignedIn():
     mainWindow.ui.friendListView.setModel(contactListModel)
     mainWindow.ui.friendListView.setEditTriggers(QAbstractItemView.NoEditTriggers)
     mainWindow.ui.friendListView.show()
-        
+
+    # _thread.start_new_thread(messageListener, ())        
     return True 
         
 
@@ -113,49 +122,70 @@ def newChatDialog(index):
     global sock
     print('!!', index.data())
 
+    _thread.start_new_thread(messageListener, ())
+
     # index.data() contains the text of the QListView item which is 
     # like: "FirstName LastName (username)"
     # we are interested in extracting username from this string...
     rightOfParenthesis = index.data().split('(')[1]
-    touser = rightOfParenthesis.split(')')[0]
+    contact = rightOfParenthesis.split(')')[0]
 
     chatDialog = ChatDialog()
 
-    openedChatDialogs.append({'user': touser, 'chatDialogObject': chatDialog})
+    openedChatDialogs.append({'contact': contact, 'chatDialogObject': chatDialog})
 
-    chatDialog.setTouser(touser)
-    chatDialog.setFromuser(username)
+    chatDialog.setUser(username)
+    chatDialog.setContact(contact)
     chatDialog.setSock(sock)
+    chatDialog.ui.setWindowTitle('Chat: ' + contact)
+
     chatDialog.ui.exec()
+    # messageListener()
 
 def messageListener():
     global sock
+    print('listening messages at....'+str(sock.getpeername())+', '+str(sock.getsockname()))
     # global DBInit
     hasOpenedChatDialog = False
     chatDialog = None
+    messageText = ''
     while not exit:
-        data = sock.recv(65536).trim().decode()
+        print('before receiving...')
+        data = sock.recv(65535).strip().decode()
+        print('received: ' + data)
         dataJson = json.loads(data)
         if 'type' in dataJson and dataJson['type'] == 'message' and dataJson['touser'] == username:
-            DBInit.insertMessage(username, dataJson['fromuser'], dataJson['message'])
+            # cl = list(dataJson['message'])
+            # cryptList = []
+            # for i in cl:
+            #     j = np.matrix(i)
+            #     cryptList.append(j)
+
+            messageText = fc.decryptFromString(dataJson['message'])
+
+            # DBInit.insertMessage(username, dataJson['fromuser'], 'I', dataJson['message'])
+            DBInit.insertMessage(username, dataJson['fromuser'], 'I', messageText)
 
             for dlog in openedChatDialogs:
-                if dlog['user'] == dataJson['fromuser']:
+                if dlog['contact'] == dataJson['fromuser']:
                     hasOpenedChatDialog = True
                     chatDialog = dlog['chatDialogObject']
                     break
             
             if hasOpenedChatDialog:
-                chatDialog.receive(dataJson['fromuser'], dataJson['message'])
+                # chatDialog.receive(dataJson['fromuser'], dataJson['message'])
+                chatDialog.receive(dataJson['fromuser'], messageText)
 
-
+            # DBInit.insertMessage(username, dataJson['fromuser'], 'I', dataJson['message'])
+            DBInit.insertMessage(username, dataJson['fromuser'], 'I', messageText)
 
 dbConn = sqlite3.connect('data.db')
 dbCur = dbConn.cursor()
 
 DBInit.init()
 
-host = "127.168.2.75"
+host = '127.0.0.1'
+# host = "127.168.2.75"
 port=4447
 
 sock=socket(AF_INET, SOCK_STREAM)

@@ -40,15 +40,15 @@ class SignInDialog(QDialog):
         self.sock = sock
     
     def signIn(self):
-        username = self.ui.usernameEdit.text()
-        password = self.ui.passwordEdit.text()
+        self.username = self.ui.usernameEdit.text()
+        self.password = self.ui.passwordEdit.text()
 
         # result = DBInit.loginCheck(username,password)
 
         reqObj = {
             'type':     'login',
-            'username': username,
-            'password': password
+            'username': self.username,
+            'password': self.password
         }
 
         reqJson = json.dumps(reqObj)

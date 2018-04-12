@@ -43,7 +43,7 @@ class Ui_Chat(QDialog):
  
         self.chatBody.addWidget(splitter2)
  
-        self.setWindowTitle("Chat Application")
+        self.setWindowTitle("Chat")
         self.resize(500, 500)
 
  

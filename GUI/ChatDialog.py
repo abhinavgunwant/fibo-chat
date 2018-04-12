@@ -21,51 +21,68 @@ from FiboCrypt.fibocrypt        import fibocrypt, toString
 # app             = QApplication(sys.argv)
 # signInDialog    = SignInDialog()
 
+p = 43566776258855008468992
+q = 70492524767089384226816
+
 class ChatDialog(QDialog):
     def __init__(self, parent = None):
         QDialog.__init__(self, parent)
         self.ui = Ui_Chat()
-        # self.ui.setupUi(self)
 
-        self.touser = None
-        self.fromuser = None
+        self.user = None
+        self.contact = None
         self.sock = None
 
         self.ui.btnSend.clicked.connect(self.send)
 
-    def setTouser(self, touser):
-        self.touser = touser
+    def setUser(self, user):
+        self.user = user
  
-    def setFromuser(self, fromuser):
-        self.fromuser = fromuser
+    def setContact(self, contact):
+        self.contact = contact
 
     def send(self):
-        text=self.ui.chatTextField.text()
+        textTemp = self.ui.chatTextField.text()
+        
+        if textTemp == '':
+            return
+        
+        cryptList = fc.fibocrypt(textTemp, p, q)
+        text = fc.toString(cryptList, p, q)
         font=self.ui.chat.font()
         font.setPointSize(13)
         self.ui.chat.setFont(font)
-        textFormatted='{:>80}'.format(text)
-        self.ui.chat.append(textFormatted)
+        textFormatted='{:>80}'.format(textTemp)
+        self.ui.chat.append('Me: ' + textFormatted)
         # tcpClientA.send(text.encode())
         self.ui.chatTextField.setText("")
 
         sendObj = {
             'type': 'message',
-            'touser': self.touser,
-            'fromuser': self.fromuser,
+            'touser': self.contact,
+            'fromuser': self.user,
             'message': text
         }
 
         sendJson = json.dumps(sendObj)
 
+        DBInit.insertMessage(self.user, self.contact, 'O', text)
+
         self.sock.send(bytes(sendJson, 'utf-8'))
 
 
     def receive(self, fromuser, text):
-        self.ui.chat.append(fromuser+': '+ text)
+        self.ui.chat.append('{:<80}'.format(fromuser+': '+ text))
 
     def setSock(self, sock):
         self.sock = sock
+
+    def loadPreviosChats(self, prevChats):
+        for message in prevChats:
+            if message['direction'] == 'O':
+                self.ui.chat.append('Me: ' + message['text'])
+            else:
+                self.ui.chat.append(message['fromuser']+': '+message['text'])
 
     def showMessage(self,title,msg):
         msgBox = QtWidgets.QMessageBox()

@@ -73,7 +73,7 @@ class ClientThread(Thread):
        while True:
            data = tcpClientA.recv(BUFFER_SIZE)
            window.chat.append(data.decode("utf-8"))
-       tcpClientA.close() 
+       tcpClientA.close()
  
  
 if __name__ == '__main__':
