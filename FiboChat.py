@@ -5,6 +5,7 @@ import PyQt5
 import _thread
 import json
 import FiboCrypt.fibocrypt as fc
+import FiboCrypt.Util
 
 import numpy as np
 
@@ -17,23 +18,36 @@ from GUI.SignInDialog   import SignInDialog
 from GUI.RegisterDialog import RegisterDialog
 from GUI.ChatDialog     import ChatDialog
 from GUI.ChatDialogGUI  import Ui_Chat
+from FiboCrypt.Util     import randomInt
 
 from socket             import *
 
+exit                = False
+username            = ''
+signedIn            = False
+contactsList        = []
+contactsOnline      = []
+openedChatDialogs   = []
+dbConn              = None
+dbCur               = None
+sock                = None
+signInDialog        = None
+mainWindow          = None
+regDialog           = None
 
-p = 43566776258855008468992
-q = 70492524767089384226816
+## Default host and port:
+host                = "10.20.4.203"
+port                = 4447
 
-exit = False
-username = ''
-signedIn = False
-contactsList = []
-contactsOnline = []
-openedChatDialogs = []
+preSharedKeys       = {
+    'p': 0,
+    'q': 0
+}
 
 def launchRegisterDiag():
     global regDialog
     global sock
+    global signInDialog
 
     signInDialog.hide()
     regDialog.setSock(sock)
@@ -54,11 +68,11 @@ def resetRegisterDiag():
 def register():
     global regDialog
 
-    firstName = regDialog.ui.firstNameEdit.text()
-    lastName = regDialog.ui.lastNameEdit.text()
-    email = regDialog.ui.emailEdit.text()
-    username = regDialog.ui.usernameEdit.text()
-    password = regDialog.ui.passwordEdit.text()
+    firstName   = regDialog.ui.firstNameEdit.text()
+    lastName    = regDialog.ui.lastNameEdit.text()
+    email       = regDialog.ui.emailEdit.text()
+    username    = regDialog.ui.usernameEdit.text()
+    password    = regDialog.ui.passwordEdit.text()
 
     print('Register\nFirst Name: '+firstName+'\nLast Name: '+lastName)
     print('Email: '+email+'\nUsername: '+username+'\nPassword: '+password)
@@ -81,15 +95,15 @@ def checkSignedIn():
 
     print('checkSignedIn(): now getting contacts...')
     
-    # now get the online contacts
+    ## now get the online contacts
     sock.send(bytes(json.dumps({'type': 'contactlist'}), 'utf-8'))
-    respData = sock.recv(1024).strip().decode()
-    respObj = json.loads(respData)
+    respData        = sock.recv(1024).strip().decode()
+    respObj         = json.loads(respData)
+    contactsList    = respObj['contacts']
+    contactsOnline  = respObj['contactsonline']
     print(respObj)
-    contactsList = respObj['contacts']
-    contactsOnline = respObj['contactsonline']
 
-    # add contacts to list view
+    ## add contacts to list view
     contactListModel = QStandardItemModel(mainWindow.ui.friendListView)
     for contact in contactsList:
         listEntryText =  contact[0] + ' ' + contact[1] + ' (' + contact[2] + ')'
@@ -108,122 +122,169 @@ def checkSignedIn():
     mainWindow.ui.friendListView.setEditTriggers(QAbstractItemView.NoEditTriggers)
     mainWindow.ui.friendListView.show()
 
-    # _thread.start_new_thread(messageListener, ())        
     return True 
-        
 
 def onContactSelect(index):
-    # mainWindow.ui.friendListView.
     print(index.data())
-
 
 def newChatDialog(index):
     global username
     global sock
-    print('!!', index.data())
 
-    _thread.start_new_thread(messageListener, ())
-
-    # index.data() contains the text of the QListView item which is 
-    # like: "FirstName LastName (username)"
-    # we are interested in extracting username from this string...
+    ## index.data() contains the text of the QListView object which is
+    ##      of the format: "FirstName LastName (username)"
+    ##      we are interested in extracting username from this string...
     rightOfParenthesis = index.data().split('(')[1]
     contact = rightOfParenthesis.split(')')[0]
 
     chatDialog = ChatDialog()
 
-    openedChatDialogs.append({'contact': contact, 'chatDialogObject': chatDialog})
+    openedChatDialogs.append({'contact': contact, 'chatDialogObject': chatDialog, 'preSharedKeys':{'p': 0, 'q': 0}})
 
     chatDialog.setUser(username)
     chatDialog.setContact(contact)
     chatDialog.setSock(sock)
     chatDialog.ui.setWindowTitle('Chat: ' + contact)
+    _thread.start_new_thread(messageListener, (chatDialog, contact,))
 
     chatDialog.ui.exec()
-    # messageListener()
 
-def messageListener():
+def messageListener(chatDialog, contact):
     global sock
+
     print('listening messages at....'+str(sock.getpeername())+', '+str(sock.getsockname()))
-    # global DBInit
-    hasOpenedChatDialog = False
+    
+    print('Sharing keys for this client...')
+    keyP = randomInt(5)
+    keyQ = randomInt(5)
+    chatDialog.setPreSharedKeys(keyP, keyQ)
+
+    ## share the 'preshared key' with the other connected client
+    sock.send(bytes(json.dumps({
+        'type': 'keyshare',
+        'touser': contact,
+        'fromuser': username,
+        'keys':{
+            'p': keyP,
+            'q': keyQ
+        }}), 'utf-8'))
+    
     chatDialog = None
+    chatDiagObj = None
+
+    for dlog in openedChatDialogs:
+        if dlog['contact'] == contact:
+            hasOpenedChatDialog = True
+            chatDialog = dlog['chatDialogObject']
+            chatDiagObj = dlog
+            break
+
+    print('setting preSharedKeys...\nP: ' + str(keyP) + ' Q: ' + str(keyQ))
+    chatDiagObj['preSharedKeys']['p'] = keyP
+    chatDiagObj['preSharedKeys']['q'] = keyQ
+
+    hasOpenedChatDialog = False
     messageText = ''
+    
     while not exit:
-        print('before receiving...')
         data = sock.recv(65535).strip().decode()
         print('received: ' + data)
         dataJson = json.loads(data)
-        if 'type' in dataJson and dataJson['type'] == 'message' and dataJson['touser'] == username:
-            # cl = list(dataJson['message'])
-            # cryptList = []
-            # for i in cl:
-            #     j = np.matrix(i)
-            #     cryptList.append(j)
 
-            messageText = fc.decryptFromString(dataJson['message'])
-
-            # DBInit.insertMessage(username, dataJson['fromuser'], 'I', dataJson['message'])
-            DBInit.insertMessage(username, dataJson['fromuser'], 'I', messageText)
-
-            for dlog in openedChatDialogs:
-                if dlog['contact'] == dataJson['fromuser']:
-                    hasOpenedChatDialog = True
-                    chatDialog = dlog['chatDialogObject']
+        if 'type' in dataJson and dataJson['type'] == 'keyshare' and dataJson['touser'] == username:
+            print('Received keyshare request from: '+dataJson['fromuser'])
+            for i in range(len(openedChatDialogs)):
+                if openedChatDialogs[i]['contact'] == dataJson['fromuser']:
+                    print('setting preSharedKeys...\nP: ' + str(dataJson['keys']['p']) + ' Q: ' + str(dataJson['keys']['q']))
+                    openedChatDialogs[i]['preSharedKeys']['p'] = dataJson['keys']['p']
+                    openedChatDialogs[i]['preSharedKeys']['q'] = dataJson['keys']['q']
+                    chatDialog.setPreSharedKeys(dataJson['keys']['p'], dataJson['keys']['q'])
                     break
             
-            if hasOpenedChatDialog:
-                # chatDialog.receive(dataJson['fromuser'], dataJson['message'])
-                chatDialog.receive(dataJson['fromuser'], messageText)
-
-            # DBInit.insertMessage(username, dataJson['fromuser'], 'I', dataJson['message'])
+        elif 'type' in dataJson and dataJson['type'] == 'message' and dataJson['touser'] == username:
+            messageText = fc.decryptFromString(dataJson['message'], chatDiagObj['preSharedKeys'])
+            print('verifying this message...')
+            cryptList, p_, q_ = fc.fromString(dataJson['message'], chatDiagObj['preSharedKeys'])
+            print(cryptList[0].tolist())
+            if fc.verifyAll(cryptList):
+                print('message verification succeeded!')
+            else:
+                print('message may be corrupt!')
             DBInit.insertMessage(username, dataJson['fromuser'], 'I', messageText)
 
-dbConn = sqlite3.connect('data.db')
-dbCur = dbConn.cursor()
+            print('showing in chat dialog...')
+            chatDialog.receive(dataJson['fromuser'], messageText)
+            DBInit.insertMessage(username, dataJson['fromuser'], 'I', messageText)        
 
-DBInit.init()
+def loadClientConfig():
+    global host
+    global port
 
-host = '127.0.0.1'
-# host = "127.168.2.75"
-port=4447
+    configStr = ''
 
-sock=socket(AF_INET, SOCK_STREAM)
-sock.connect((host,port))
+    with open('config.json') as configFile:
+        for line in configFile:
+            configStr += line
 
-app             = QApplication(sys.argv)
-mainWindow      = MainWindow()
-regDialog       = RegisterDialog()
-signInDialog    = SignInDialog()
+    configJson  = json.loads(configStr)
+    host        = configJson['host']
+    port        = int(configJson['port'])
 
 
-signInDialog.ui.registerButton.clicked.connect(launchRegisterDiag)
-regDialog.ui.resetButton.clicked.connect(resetRegisterDiag)
-regDialog.ui.registerButton.clicked.connect(register)
-mainWindow.ui.friendListView.doubleClicked.connect(newChatDialog)
-# mainWindow.ui.friendListView.clicked.connect(onContactSelect)
+def main():
+    global dbConn
+    global dbCur
+    global sock
+    global signInDialog
+    global mainWindow
+    global regDialog
 
-# Check if the user token is stored...
-x = dbCur.execute('SELECT * FROM USER')
+    dbConn  = sqlite3.connect('data.db')
+    dbCur   = dbConn.cursor()
 
-mainWindow.show()
+    ## load the hostname and port info from config.json
+    loadClientConfig()
 
-signInDialog.setSock(sock)
+    DBInit.init()
 
-if len(list(x)) == 0:
-    # open the login dialog
-    mainWindow.ui.friendsOnlineLabel.setText('You Must Login to continue...')
-    mainWindow.ui.label.setText('<font color="RED"><b>You are not Logged In!</b></font>')
-    mainWindow.ui.friendListView.hide()
+    sock            = socket(AF_INET, SOCK_STREAM)
+    sock.connect((host,port))
 
-    # username = signInDialog.show()
-    signInDialog.show()
+    app             = QApplication(sys.argv)
+    mainWindow      = MainWindow()
+    regDialog       = RegisterDialog()
+    signInDialog    = SignInDialog()
+
+
+    signInDialog.ui.registerButton.clicked.connect(launchRegisterDiag)
+    regDialog.ui.resetButton.clicked.connect(resetRegisterDiag)
+    regDialog.ui.registerButton.clicked.connect(register)
+    mainWindow.ui.friendListView.doubleClicked.connect(newChatDialog)
+
+    ## Check if the user token is stored...
+    x = dbCur.execute('SELECT * FROM USER')
+
+    mainWindow.show()
+
+    signInDialog.setSock(sock)
+
+    if len(list(x)) == 0:
+        ## open the login dialog
+        mainWindow.ui.friendsOnlineLabel.setText('You Must Login to continue...')
+        mainWindow.ui.label.setText('<font color="RED"><b>You are not Logged In!</b></font>')
+        mainWindow.ui.friendListView.hide()
+
+        signInDialog.show()
+    else:
+        signInDialog.show()
+
+    _thread.start_new_thread(checkSignedIn, ())
+
+    sys.exit(app.exec_())
+
+
+## Make sure it is not started as a module...
+if __name__ == '__main__':
+    main()
 else:
-    # username = signInDialog.show()
-    signInDialog.show()
-
-# signInDialog.hide()
-
-_thread.start_new_thread(checkSignedIn, ())
-
-sys.exit(app.exec_())
+    print('This module should be started as a standalone python program...')

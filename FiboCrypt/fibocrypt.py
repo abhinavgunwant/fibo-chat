@@ -65,12 +65,40 @@ def verify(M):
     m1List = [mList[0][0]]
     m2List = [[mList[0][0], mList[0][1]],[mList[1][0], mList[1][1]]]
     m3List = mList
-    d1 = np.linalg.det(np.matrix(m1List))
-    d2 = np.linalg.det(np.matrix(m2List))
-    d3 = np.linalg.det(np.matrix(m3List))
+    a = mList[0][0]
+    b = mList[0][1]
+    c = mList[0][2]
+    d = mList[1][0]
+    e = mList[1][1]
+    f = mList[1][2]
+    g = mList[2][0]
+    h = mList[2][1]
+    i = mList[2][2]
 
-    return (d1 + d2) == d3
+    d1 = a
+    d2 = a * e - b * d
+    d3 = a*(e*i - f*h) - b*(d*i - f*g) + c*(d*h - e*g)
 
+    print('d1: ' + str(d1) + ' d2: ' + str(d2) + ' d3: ' + str(d3) + ' d1+d2=' + str(d1+d2))
+
+    return (d1 + (d2/d1)) == (d3/d2)
+
+def verifyAll(cryptList):
+    for i in cryptList:
+        # m1 = [i[0][0]]
+        # m2 = [[i[0][0], i[0][1]], [i[1][0], i[1][1]]]
+        # m3 = i
+
+        # d1 = np.linalg.det(np.matrix(m1))
+        # d2 = np.linalg.det(np.matrix(m2))
+        # d3 = np.linalg.det(np.matrix(m3))
+
+        # if (d1 + d2) != d3:
+        #     return False
+
+        if verify(i) == False:
+            return False
+    return True
 
 def deFibo(M, p, q):
     dim = M.shape
@@ -95,11 +123,14 @@ def toString(matList,p,q):
 
     return text[:-1]
 
-def fromString(text):
+def fromString(text, psk):
     numbers = text.split(',')
 
-    p = int(numbers[0])
-    q = int(numbers[1])
+    if psk == None:
+        psk = {'p':0, 'q':0}
+
+    p = int(numbers[0]) + psk['p']
+    q = int(numbers[1]) + psk['q']
 
     cryptList = []
 
@@ -114,8 +145,8 @@ def fromString(text):
 
     return (cryptList, p, q)
 
-def decryptFromString(text):
-    cryptList, p, q = fromString(text)
+def decryptFromString(text, psk):
+    cryptList, p, q = fromString(text, psk)
 
     return decryptList(cryptList, p, q)
 
@@ -141,8 +172,11 @@ def main():
                 for line in f:
                     text += line
 
-    p = 43566776258855008468992
-    q = 70492524767089384226816
+    # p = 43566776258855008468992
+    # q = 70492524767089384226816
+    
+    p = 5
+    q = 8
 
     print('Using p = ' + str(p) + ', q = ' + str(q))
 
@@ -154,6 +188,12 @@ def main():
     diff1 = time2 - time1
 
     print('CipherText:\n'+str(cryptList))
+
+    print('Verifying crypted text....')
+    if verifyAll(cryptList):
+        print('verified!')
+    else:
+        print('not verified!')
 
     time1 = datetime.now()
     print('Text after decryption: ' + decryptList(cryptList, p, q))

@@ -1,4 +1,4 @@
 {
-    "serverHostAddress":    "10.20.4.203",
-    "serverHostPort":       "4446"
+    "host":     "127.168.2.75",
+    "port":     "4447"
 }
