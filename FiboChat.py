@@ -35,8 +35,14 @@ signInDialog        = None
 mainWindow          = None
 regDialog           = None
 
+logfile             = open('client-log.txt', 'w')
+
 ## Default host and port:
-host                = "10.20.4.203"
+# host                = "192.168.43.12"
+# host                = "192.168.43.64"
+# host                = "10.20.4.203"
+host                = "10.20.4.108"
+# host                = "localhost"
 port                = 4447
 
 preSharedKeys       = {
@@ -82,6 +88,7 @@ def checkSignedIn():
     global username
     global signedIn
     global sock
+    global logfile
 
     print('checkSignedIn(): start')
     while True:
@@ -92,28 +99,30 @@ def checkSignedIn():
     signedIn = True
     signInDialog.hide()
     print('checkSignedIn(): logged in as: ' + username)
+    logfile.write('\ncheckSignedIn(): logged in as: ' + username)
 
     print('checkSignedIn(): now getting contacts...')
     
     ## now get the online contacts
     sock.send(bytes(json.dumps({'type': 'contactlist'}), 'utf-8'))
+    # respData        = sock.recv(1024).strip().decode()
     respData        = sock.recv(1024).strip().decode()
     respObj         = json.loads(respData)
+    print(respObj)
     contactsList    = respObj['contacts']
     contactsOnline  = respObj['contactsonline']
-    print(respObj)
 
-    ## add contacts to list view
+    # loadContactList(contactList)
     contactListModel = QStandardItemModel(mainWindow.ui.friendListView)
     for contact in contactsList:
         listEntryText =  contact[0] + ' ' + contact[1] + ' (' + contact[2] + ')'
         cItem = QStandardItem(listEntryText)
         cItem.setFont(QFont("Helvetica [Cronyx]", 14))
         if contact[2] in contactsOnline:
-            # listEntryText = '<font color="green">'+contact[0] + ' ' + contact[1]+'</font>'
+            ## show online contacts as green
             cItem.setForeground(Qt.green)
         else:
-            # listEntryText = '<font color="black">'+contact[0] + ' ' + contact[1]+'</font>'
+            ## show offline contacts as black
             cItem.setForeground(Qt.black)
             
         contactListModel.appendRow(cItem)
@@ -122,7 +131,29 @@ def checkSignedIn():
     mainWindow.ui.friendListView.setEditTriggers(QAbstractItemView.NoEditTriggers)
     mainWindow.ui.friendListView.show()
 
-    return True 
+    return True
+
+def loadContactList(contactList):
+    global mainWindow
+    ## add contacts to list view
+    contactListModel = QStandardItemModel(mainWindow.ui.friendListView)
+    for contact in contactsList:
+        listEntryText =  contact[0] + ' ' + contact[1] + ' (' + contact[2] + ')'
+        cItem = QStandardItem(listEntryText)
+        cItem.setFont(QFont("Helvetica [Cronyx]", 14))
+        if contact[2] in contactsOnline:
+            ## show online contacts as green
+            cItem.setForeground(Qt.green)
+        else:
+            ## show offline contacts as black
+            cItem.setForeground(Qt.black)
+            
+        contactListModel.appendRow(cItem)
+
+    mainWindow.ui.friendListView.setModel(contactListModel)
+    mainWindow.ui.friendListView.setEditTriggers(QAbstractItemView.NoEditTriggers)
+    mainWindow.ui.friendListView.show()
+
 
 def onContactSelect(index):
     print(index.data())
@@ -151,9 +182,9 @@ def newChatDialog(index):
 
 def messageListener(chatDialog, contact):
     global sock
-
+    global logfile
     print('listening messages at....'+str(sock.getpeername())+', '+str(sock.getsockname()))
-    
+    logfile.write('\nlistening messages at....'+str(sock.getpeername())+', '+str(sock.getsockname()))
     print('Sharing keys for this client...')
     keyP = randomInt(5)
     keyQ = randomInt(5)
@@ -180,6 +211,7 @@ def messageListener(chatDialog, contact):
             break
 
     print('setting preSharedKeys...\nP: ' + str(keyP) + ' Q: ' + str(keyQ))
+    logfile.write('\nsetting preSharedKeys...\nP: ' + str(keyP) + ' Q: ' + str(keyQ))
     chatDiagObj['preSharedKeys']['p'] = keyP
     chatDiagObj['preSharedKeys']['q'] = keyQ
 
@@ -189,13 +221,16 @@ def messageListener(chatDialog, contact):
     while not exit:
         data = sock.recv(65535).strip().decode()
         print('received: ' + data)
+        logfile.write('\nreceived: ' + data)
         dataJson = json.loads(data)
 
         if 'type' in dataJson and dataJson['type'] == 'keyshare' and dataJson['touser'] == username:
             print('Received keyshare request from: '+dataJson['fromuser'])
+            logfile.write('\nReceived keyshare request from: '+dataJson['fromuser'])
             for i in range(len(openedChatDialogs)):
                 if openedChatDialogs[i]['contact'] == dataJson['fromuser']:
                     print('setting preSharedKeys...\nP: ' + str(dataJson['keys']['p']) + ' Q: ' + str(dataJson['keys']['q']))
+                    logfile.write('\nsetting preSharedKeys...\nP: ' + str(dataJson['keys']['p']) + ' Q: ' + str(dataJson['keys']['q']))
                     openedChatDialogs[i]['preSharedKeys']['p'] = dataJson['keys']['p']
                     openedChatDialogs[i]['preSharedKeys']['q'] = dataJson['keys']['q']
                     chatDialog.setPreSharedKeys(dataJson['keys']['p'], dataJson['keys']['q'])
@@ -204,17 +239,25 @@ def messageListener(chatDialog, contact):
         elif 'type' in dataJson and dataJson['type'] == 'message' and dataJson['touser'] == username:
             messageText = fc.decryptFromString(dataJson['message'], chatDiagObj['preSharedKeys'])
             print('verifying this message...')
+            logfile.write('\nverifying this message...')
             cryptList, p_, q_ = fc.fromString(dataJson['message'], chatDiagObj['preSharedKeys'])
             print(cryptList[0].tolist())
             if fc.verifyAll(cryptList):
                 print('message verification succeeded!')
+                logfile.write('\nmessage verification succeeded!')
             else:
                 print('message may be corrupt!')
+                logfile.write('\nmessage may be corrupt!')
             DBInit.insertMessage(username, dataJson['fromuser'], 'I', messageText)
 
             print('showing in chat dialog...')
+            logfile.write('\nshowing in chat dialog...')
             chatDialog.receive(dataJson['fromuser'], messageText)
-            DBInit.insertMessage(username, dataJson['fromuser'], 'I', messageText)        
+            DBInit.insertMessage(username, dataJson['fromuser'], 'I', messageText)
+        elif 'type' in dataJson and dataJson['type'] == 'contactlist':
+            # contactsRecvData = json.loads(dataJson)
+            loadContactList(dataJson['contacts'])
+
 
 def loadClientConfig():
     global host
@@ -243,7 +286,7 @@ def main():
     dbCur   = dbConn.cursor()
 
     ## load the hostname and port info from config.json
-    loadClientConfig()
+    # loadClientConfig()
 
     DBInit.init()
 

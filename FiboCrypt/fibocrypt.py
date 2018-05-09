@@ -8,9 +8,6 @@ from datetime import datetime
 def fibocrypt(text, p, q):
     global fibArrInit
 
-    # if not fibArrInit:
-    #     initFibArr()
-
     r = p+q
     txtLen = len(text)
     rem = txtLen % 3
@@ -85,17 +82,6 @@ def verify(M):
 
 def verifyAll(cryptList):
     for i in cryptList:
-        # m1 = [i[0][0]]
-        # m2 = [[i[0][0], i[0][1]], [i[1][0], i[1][1]]]
-        # m3 = i
-
-        # d1 = np.linalg.det(np.matrix(m1))
-        # d2 = np.linalg.det(np.matrix(m2))
-        # d3 = np.linalg.det(np.matrix(m3))
-
-        # if (d1 + d2) != d3:
-        #     return False
-
         if verify(i) == False:
             return False
     return True
@@ -172,11 +158,8 @@ def main():
                 for line in f:
                     text += line
 
-    # p = 43566776258855008468992
-    # q = 70492524767089384226816
-    
-    p = 5
-    q = 8
+    p = 43566776258855008468992
+    q = 70492524767089384226816
 
     print('Using p = ' + str(p) + ', q = ' + str(q))
 

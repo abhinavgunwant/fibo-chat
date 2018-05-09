@@ -14,7 +14,9 @@ dbCur               = dbConn.cursor()
 ServerDBInit.init()
 
 ## default host and port
-host                = "127.168.2.75"
+# host                = "192.168.43.64"
+# host                = "127.168.2.75"
+host                = "10.20.4.108"
 port                = 4447
 
 connectedClients    = {}
@@ -75,8 +77,17 @@ def listen(conn, addr):
                 if respObj['status'] == True:
                     currentUser = respObj['username']
                     connectedClients[currentUser] = [conn, addr]
+                    contactRespObj = {
+                        'type':     'contactlist',
+                        'contacts': contactList,
+                        'contactsonline': list(connectedClients.keys())
+                    }
+                    conn.send(bytes(json.dumps(respObj), 'utf-8'))                
+                    # conn.send(bytes(json.dumps(contactRespObj), 'utf-8'))
                     gotUser = True
-                conn.send(bytes(json.dumps(respObj), 'utf-8'))
+                    print('!')
+                else:
+                    conn.send(bytes(json.dumps(respObj), 'utf-8'))
             elif firstData['type'] == 'register':
                 print('received a "register" type!')
                 respObj = registerUser(firstData)
@@ -181,7 +192,7 @@ def main():
     s.bind((host,port))
     print("Listening for connections.. ")
 
-    loadServerConfig()
+    # loadServerConfig()
 
     loadContactList()
 
@@ -192,7 +203,6 @@ def main():
             print('exiting')
 
     s.close()
-
 
 if __name__ == '__main__':
     main()
